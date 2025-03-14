@@ -46,6 +46,7 @@ workflow PREPARE_GENOME {
     regions_filt_gtf           // file: .gtf
     regions_resolved_gtf       // file: .gtf
     regions_resolved_gtf_genic // file: .gtf
+    skip_premapping           // boolean   
 
     main:
 
@@ -69,12 +70,16 @@ workflow PREPARE_GENOME {
     // MODULE: Uncompress genome ncrna_fasta file if required
     //
     ch_ncrna_fasta = Channel.empty()
-    if (ncrna_fasta.toString().endsWith(".gz")) {
-        ch_ncrna_fasta = GUNZIP_NCRNA_FASTA ( [ [id:ncrna_fasta.baseName], ncrna_fasta ] ).gunzip
-        ch_versions = ch_versions.mix(GUNZIP_NCRNA_FASTA.out.versions)
-    } else {
-        ch_ncrna_fasta = Channel.of([ [id:ncrna_fasta.baseName], ncrna_fasta ])
+    // if bowtie skipped, this channel stays empty
+    if (!skip_premapping) {
+        if (ncrna_fasta.toString().endsWith(".gz")) {
+            ch_ncrna_fasta = GUNZIP_NCRNA_FASTA ( [ [id:ncrna_fasta.baseName], ncrna_fasta ] ).gunzip
+            ch_versions = ch_versions.mix(GUNZIP_NCRNA_FASTA.out.versions)
+        } else {
+            ch_ncrna_fasta = Channel.of([ [id:ncrna_fasta.baseName], ncrna_fasta ])
+        }
     }
+ 
     // EXAMPLE CHANNEL STRUCT: [[meta], fasta]
     //ch_ncrna_fasta | view
 
@@ -112,17 +117,20 @@ workflow PREPARE_GENOME {
     // MODULES: Uncompress Bowtie index or generate if required
     //
     ch_bt_index = Channel.empty()
-    if (ncrna_genome_index) {
-        if (ncrna_genome_index.toString().endsWith(".tar.gz")) {
-            ch_bt_index = UNTAR_BT ( [ [:], ncrna_genome_index ] ).untar
-            ch_versions  = ch_versions.mix(UNTAR_BT.out.versions)
-        } else {
-            ch_bt_index = Channel.of([ [:] , ncrna_genome_index ])
+    // if bowtie skipped, this channel stays empty
+    if (!skip_premapping) {
+        if (ncrna_genome_index) {
+            if (ncrna_genome_index.toString().endsWith(".tar.gz")) {
+                ch_bt_index = UNTAR_BT ( [ [:], ncrna_genome_index ] ).untar
+                ch_versions  = ch_versions.mix(UNTAR_BT.out.versions)
+            } else {
+                ch_bt_index = Channel.of([ [:] , ncrna_genome_index ])
+            }
         }
-    }
-    else {
-        ch_bt_index = BOWTIE_BUILD ( ch_ncrna_fasta.map{it[1]} ).index
-        ch_versions = ch_versions.mix(BOWTIE_BUILD.out.versions)
+        else {
+            ch_bt_index = BOWTIE_BUILD ( ch_ncrna_fasta.map{it[1]} ).index
+            ch_versions = ch_versions.mix(BOWTIE_BUILD.out.versions)
+        }
     }
 
     //
@@ -146,15 +154,18 @@ workflow PREPARE_GENOME {
     // MODULE: Create fasta fai if required for ncrna genome
     //
     ch_ncrna_fasta_fai = Channel.empty()
-    if (fasta_fai) {
-        ch_ncrna_fasta_fai = Channel.of([ [id:ncrna_fasta_fai.baseName], fasta_fai ])
-    } else {
-        NCRNA_INDEX (
-            ch_ncrna_fasta,
-            [[],[]]
-        )
-        ch_ncrna_fasta_fai = NCRNA_INDEX.out.fai
-        ch_versions = ch_versions.mix(NCRNA_INDEX.out.versions)
+    // if bowtie skipped, this channel stays empty
+    if (!skip_premapping) {
+        if (fasta_fai) {
+            ch_ncrna_fasta_fai = Channel.of([ [id:ncrna_fasta_fai.baseName], fasta_fai ])
+        } else {
+            NCRNA_INDEX (
+                ch_ncrna_fasta,
+                [[],[]]
+            )
+            ch_ncrna_fasta_fai = NCRNA_INDEX.out.fai
+            ch_versions = ch_versions.mix(NCRNA_INDEX.out.versions)
+        }
     }
     // EXAMPLE CHANNEL STRUCT: [[meta], fai]
     //ch_fasta_fai | view
@@ -172,9 +183,12 @@ workflow PREPARE_GENOME {
     // MODULE: Calc ncrna chrom sizes
     //
     ch_ncrna_chrom_sizes = ncrna_chrom_sizes
-    if(!ncrna_chrom_sizes) {
-        ch_ncrna_chrom_sizes = NCRNA_CHROM_SIZE ( ch_ncrna_fasta ).sizes
-        ch_versions  = ch_versions.mix(NCRNA_CHROM_SIZE.out.versions)
+    // if bowtie skipped, this will not run
+    if (!skip_premapping) {
+        if(!ncrna_chrom_sizes) {
+            ch_ncrna_chrom_sizes = NCRNA_CHROM_SIZE ( ch_ncrna_fasta ).sizes
+            ch_versions  = ch_versions.mix(NCRNA_CHROM_SIZE.out.versions)
+        }
     }
 
     //
