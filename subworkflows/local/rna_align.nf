@@ -33,51 +33,55 @@ workflow RNA_ALIGN {
     gtf                 // channel: [ val(meta), [ gtf ] ]
     fasta               // channel: [ val(meta), [ fasta/fa ]
     skip_transcriptome  // boolean
+    skip_premapping     // boolean
 
     main:
     ch_versions = Channel.empty()
     ch_gtf = gtf.first() //for some reason it comes in as a queue channel so need to convert to value channel
-    //
-    // MODULE: Align reads to ncrna genome
-    //
-    BOWTIE_ALIGN (
-        fastq,
-        bt_index.map{ it[1] }
-    )
-    ch_versions = ch_versions.mix(BOWTIE_ALIGN.out.versions)
 
-    //
-    // SUBWORKFLOW: Sort, index BAM file 
-    //
-    SAMTOOLS_SORT_NCRNA( BOWTIE_ALIGN.out.bam )
-    SAMTOOLS_INDEX_NCRNA( SAMTOOLS_SORT_NCRNA.out.bam )
+    if (!skip_premapping) {
+        //
+        // MODULE: Align reads to ncrna genome
+        //
+        BOWTIE_ALIGN (
+            fastq,
+            bt_index.map{ it[1] }
+        )
+        ch_versions = ch_versions.mix(BOWTIE_ALIGN.out.versions)
 
-    ch_versions = ch_versions.mix(SAMTOOLS_SORT_NCRNA.out.versions)
-    ch_versions = ch_versions.mix(SAMTOOLS_INDEX_NCRNA.out.versions)
+        //
+        // SUBWORKFLOW: Sort, index BAM file 
+        //
+        SAMTOOLS_SORT_NCRNA( BOWTIE_ALIGN.out.bam )
+        SAMTOOLS_INDEX_NCRNA( SAMTOOLS_SORT_NCRNA.out.bam )
 
-    /*
-    * MODULE: Align reads to smrna genome, here allowing 100 multimappers but only reporting one alignment per multimapped read
-    * so that we can accurately count it in the crosslink summary later
-    */
+        ch_versions = ch_versions.mix(SAMTOOLS_SORT_NCRNA.out.versions)
+        ch_versions = ch_versions.mix(SAMTOOLS_INDEX_NCRNA.out.versions)
 
-    BOWTIE_ALIGN_K1 (
-        fastq,
-        bt_index.collect{it[1]}
-    )
-    ch_versions = ch_versions.mix(BOWTIE_ALIGN_K1.out.versions)
+        /*
+        * MODULE: Align reads to smrna genome, here allowing 100 multimappers but only reporting one alignment per multimapped read
+        * so that we can accurately count it in the crosslink summary later
+        */
 
-    SAMTOOLS_SORT_NCRNA_K1 ( BOWTIE_ALIGN_K1.out.bam )
-    ch_versions = ch_versions.mix(SAMTOOLS_SORT_NCRNA_K1.out.versions)
+        BOWTIE_ALIGN_K1 (
+            fastq,
+            bt_index.collect{it[1]}
+        )
+        ch_versions = ch_versions.mix(BOWTIE_ALIGN_K1.out.versions)
 
-    SAMTOOLS_INDEX_NCRNA_K1 ( SAMTOOLS_SORT_NCRNA_K1.out.bam )
-    ch_versions = ch_versions.mix(SAMTOOLS_INDEX_NCRNA_K1.out.versions)
+        SAMTOOLS_SORT_NCRNA_K1 ( BOWTIE_ALIGN_K1.out.bam )
+        ch_versions = ch_versions.mix(SAMTOOLS_SORT_NCRNA_K1.out.versions)
+
+        SAMTOOLS_INDEX_NCRNA_K1 ( SAMTOOLS_SORT_NCRNA_K1.out.bam )
+        ch_versions = ch_versions.mix(SAMTOOLS_INDEX_NCRNA_K1.out.versions)
+    }
 
     //
     // MODULE: Align reads that did not align to the ncrna genome to the primary genome
     //
     if (skip_transcriptome) {
         STAR_ALIGN_GENOME_ONLY (
-            BOWTIE_ALIGN.out.fastq,
+            skip_premapping ? fastq : BOWTIE_ALIGN.out.fastq,
             star_index,
             ch_gtf,
             false,
@@ -128,7 +132,7 @@ workflow RNA_ALIGN {
         ch_transcript_multi_bai   = []
     } else {
         STAR_ALIGN_WITH_TRANSCRIPTOME (
-            BOWTIE_ALIGN.out.fastq,
+            skip_premapping ? fastq : BOWTIE_ALIGN.out.fastq,
             star_index,
             ch_gtf,
             false,
@@ -209,11 +213,11 @@ workflow RNA_ALIGN {
 
 
     emit:
-    ncrna_bam        = SAMTOOLS_SORT_NCRNA.out.bam      // channel: [ val(meta), [ bam ] ]
-    ncrna_bai        = SAMTOOLS_INDEX_NCRNA.out.bai     // channel: [ val(meta), [ bai ] ]
-    ncrna_log        = BOWTIE_ALIGN.out.log             // channel: [ val(meta), [ txt ] ]
-    ncrna_k1_bam     = SAMTOOLS_SORT_NCRNA_K1.out.bam                  // channel: [ val(meta), [ bam ] ]
-    ncrna_k1_bai     = SAMTOOLS_INDEX_NCRNA_K1.out.bai                 // channel: [ val(meta), [ bai ] ]
+    ncrna_bam        = skip_premapping ? Channel.empty() : SAMTOOLS_SORT_NCRNA.out.bam      // channel: [ val(meta), [ bam ] ]
+    ncrna_bai        = skip_premapping ? Channel.empty() : SAMTOOLS_INDEX_NCRNA.out.bai     // channel: [ val(meta), [ bai ] ]
+    ncrna_log        = skip_premapping ? Channel.empty() : BOWTIE_ALIGN.out.log             // channel: [ val(meta), [ txt ] ]
+    ncrna_k1_bam     = skip_premapping ? Channel.empty() : SAMTOOLS_SORT_NCRNA_K1.out.bam                  // channel: [ val(meta), [ bam ] ]
+    ncrna_k1_bai     = skip_premapping ? Channel.empty() : SAMTOOLS_INDEX_NCRNA_K1.out.bai                 // channel: [ val(meta), [ bai ] ]
 
     genome_log             = ch_genome_log                    // channel: [ val(meta), [ txt ] ]
     genome_log_final       = ch_genome_log_final              // channel: [ val(meta), [ txt ] ]
