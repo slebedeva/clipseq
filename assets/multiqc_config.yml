@@ -54,6 +54,28 @@ custom_content:
     - software-versions-by-process
     - software-versions-unique
 
+custom_data:
+  mapping:
+    description: "Read counts at each stage of mapping: ncRNA pre-mapping, genome mapping and unmapped reads, per sample."
+  dedup_reads:
+    description: "Input and output read counts across UMI deduplication, per sample."
+  dedup_mean_umis:
+    description: "Average number of UMIs per alignment position after deduplication, per sample."
+  dedup_ratio:
+    description: "Ratio of input to output reads across UMI deduplication, per sample."
+  xlinks_counts:
+    description: "Total crosslink events and unique crosslink sites detected, per sample/group."
+  xlinks_ratio:
+    description: "Crosslink events per unique crosslink site, per sample/group."
+  total_peaks:
+    description: "Number of peaks called by each peak caller, per sample/group."
+  xlinks_in_peaks:
+    description: "Percentage of crosslink events falling within called peaks, per peak caller."
+  xlinksites_in_peaks:
+    description: "Percentage of unique crosslink sites falling within called peaks, per peak caller."
+  peaks_xlinksite_coverage:
+    description: "Percentage of called peak width covered by crosslink sites, per peak caller."
+
 # Customise the module search patterns to speed up execution time
 sp:
   samtools/stats:

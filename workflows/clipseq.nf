@@ -366,7 +366,7 @@ workflow CLIPSEQ {
         ch_versions   = ch_versions.mix(GENOME_UNIQUE_DEDUP.out.versions)
         ch_genome_unique_dedupe_bam = GENOME_UNIQUE_DEDUP.out.bam
         ch_genome_unique_dedupe_bai = GENOME_UNIQUE_DEDUP.out.bai
-        //ch_umi_log    = GENOME_UNIQUE_DEDUP.out.umi_log
+        ch_umi_log    = GENOME_UNIQUE_DEDUP.out.umi_log
 
         GENOME_MULTI_DEDUP (
             ch_genome_multi_bam_bai
@@ -765,15 +765,16 @@ workflow CLIPSEQ {
         //
         // MODULE: Run clipqc
         //
-        // CLIPSEQ_CLIPQC (
-        //     ch_bt_log.map{ it[1] },
-        //     ch_star_log.map{ it[1] },
-        //     ch_umi_log.map{ it[1] },
-        //     ch_genome_crosslink_bed.map{ it[1] },
-        //     ICOUNT_ANALYSE.out.bed_peaks.map{ it[1] },
-        //     PARACLU_ANALYSE_GENOME.out.peaks.map{ it[1] },
-        //     CLIPPY_GENOME.out.peaks.map{ it[1] }
-        // )
+        CLIPQC (
+            ch_ncrna_log.collect{ it[1] }.ifEmpty([]),
+            ch_genome_log.collect{ it[1] }.ifEmpty([]),
+            ch_umi_log.collect{ it[1] }.ifEmpty([]),
+            ch_genome_crosslink_group_resolved_bed.collect{ it[1] }.ifEmpty([]),
+            ch_icountmini_peaks.collect{ it[1] }.ifEmpty([]),
+            ch_paraclu_genome_peaks.collect{ it[1] }.ifEmpty([]),
+            ch_clippy_genome_peaks.collect{ it[1] }.ifEmpty([])
+        )
+        ch_versions = ch_versions.mix(CLIPQC.out.versions)
 
         //
         // MODULE: Run multiqc
@@ -795,6 +796,7 @@ workflow CLIPSEQ {
         ch_multiqc_files = ch_multiqc_files.mix(FASTQ_FASTQC_UMITOOLS_TRIMGALORE.out.trim_log.collect{it[1]}.ifEmpty([]))
         ch_multiqc_files = ch_multiqc_files.mix(ch_ncrna_log.collect{it[1]}.ifEmpty([]))
         ch_multiqc_files = ch_multiqc_files.mix(ch_genome_log.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(CLIPQC.out.tsv.collect().ifEmpty([]))
 
         MULTIQC (
             ch_multiqc_files.collect(),

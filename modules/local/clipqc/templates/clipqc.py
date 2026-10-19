@@ -36,7 +36,7 @@ def main(process_name):
 
     for bowtie_log in bowtie_logs:
         with open(bowtie_log, "r") as logfile:
-            exp = re.sub(".out", "", os.path.basename(bowtie_log))
+            exp = re.sub(r"_ncrna\.out$", "", os.path.basename(bowtie_log))
 
             lines = logfile.readlines()
 
@@ -57,7 +57,7 @@ def main(process_name):
 
     for star_log in star_logs:
         with open(star_log, "r") as logfile:
-            exp = re.sub(".Log.final.out", "", os.path.basename(star_log))
+            exp = re.sub(r"_multiMapped\.Log\.final\.out$", "", os.path.basename(star_log))
 
             lines = logfile.readlines()
 
@@ -81,7 +81,7 @@ def main(process_name):
 
     # Subset for MultiQC plots
     mapping_df.loc[:, ["exp", "ncrna_reads", "genome_reads", "unmapped_reads"]].to_csv(
-        "mapping.tsv", sep="\t", index=False
+        "mapping_mqc.tsv", sep="\t", index=False
     )
 
     print(mapping_df)
@@ -96,7 +96,7 @@ def main(process_name):
 
     for dedup_log in dedup_logs:
         with open(dedup_log, "r") as logfile:
-            exp = re.sub(".log", "", os.path.basename(dedup_log))
+            exp = re.sub(r"\.genomeUnique\.dedup_UMICollapse\.log$", "", os.path.basename(dedup_log))
 
             lines = logfile.readlines()
 
@@ -107,7 +107,7 @@ def main(process_name):
             output_reads = int(re.findall(r"\d+", output_reads[0])[-1])
 
             mean_umis = [i for i in lines if "Average number of UMIs per alignment position" in i]
-            mean_umis = float(re.findall(r"\d+", mean_umis[0])[-1])
+            mean_umis = float(re.findall(r"[\d.]+", mean_umis[0])[-1])
 
             dedup["exp"].append(exp)
             dedup["input_reads"].append(input_reads)
@@ -119,9 +119,9 @@ def main(process_name):
     dedup_df.to_csv("dedup_metrics.tsv", sep="\t", index=False)
 
     # Subset for MultiQC plots
-    dedup_df.loc[:, ["exp", "input_reads", "output_reads"]].to_csv("dedup_reads.tsv", sep="\t", index=False)
-    dedup_df.loc[:, ["exp", "mean_umis"]].to_csv("dedup_mean_umis.tsv", sep="\t", index=False)
-    dedup_df.loc[:, ["exp", "ratio"]].to_csv("dedup_ratio.tsv", sep="\t", index=False)
+    dedup_df.loc[:, ["exp", "input_reads", "output_reads"]].to_csv("dedup_reads_mqc.tsv", sep="\t", index=False)
+    dedup_df.loc[:, ["exp", "mean_umis"]].to_csv("dedup_mean_umis_mqc.tsv", sep="\t", index=False)
+    dedup_df.loc[:, ["exp", "ratio"]].to_csv("dedup_ratio_mqc.tsv", sep="\t", index=False)
 
     print(dedup_df)
     print("\n\n")
@@ -150,11 +150,13 @@ def main(process_name):
     xlinks_files = sorted(["xlinks/" + f for f in os.listdir("xlinks") if f.endswith(".bed")])
 
     xlinks = dict((key, []) for key in ["exp", "total_xlinks", "total_xlinksites", "ratio"])
+    xlinks_df_by_exp = {}
 
     for xlinks_file in xlinks_files:
         xlinks_df = read_bed(xlinks_file)
 
-        exp = re.sub(".bed", "", os.path.basename(xlinks_file))
+        exp = re.sub(r"(_grouped)?\.genome\.xl\.bed$", "", os.path.basename(xlinks_file))
+        xlinks_df_by_exp[exp] = xlinks_df
         total_xlinks = xlinks_df["score"].sum()
         total_xlinksites = xlinks_df.shape[0]
         ratio = total_xlinks / total_xlinksites
@@ -169,9 +171,9 @@ def main(process_name):
 
     # Subset for MultiQC plots
     xlinks_metrics_df.loc[:, ["exp", "total_xlinks", "total_xlinksites"]].to_csv(
-        "xlinks_counts.tsv", sep="\t", index=False
+        "xlinks_counts_mqc.tsv", sep="\t", index=False
     )
-    xlinks_metrics_df.loc[:, ["exp", "ratio"]].to_csv("xlinks_ratio.tsv", sep="\t", index=False)
+    xlinks_metrics_df.loc[:, ["exp", "ratio"]].to_csv("xlinks_ratio_mqc.tsv", sep="\t", index=False)
 
     print(xlinks_metrics_df)
     print("\n\n")
@@ -207,17 +209,13 @@ def main(process_name):
             peaks_df = read_bed(peak_file)
 
             if peakcaller == "icount":
-                exp = re.sub(".peaks.bed", "", os.path.basename(peak_file))
+                exp = re.sub(r"\.peaks\.bed$", "", os.path.basename(peak_file))
             elif peakcaller == "paraclu":
-                exp = re.sub(".peaks.bed", "", os.path.basename(peak_file))
+                exp = re.sub(r"\.genome\.peaks\.clustered\.simplified\.bed$", "", os.path.basename(peak_file))
             elif peakcaller == "clippy":
-                exp = re.sub(
-                    "_rollmean.+_stdev.+_minGeneCount.+.bed",
-                    "",
-                    os.path.basename(peak_file),
-                )
+                exp = re.sub(r"\.genome\.peaks_rollmean.*_Peaks\.bed$", "", os.path.basename(peak_file))
 
-            xlinks_df = read_bed(xlinks_files[0])
+            xlinks_df = xlinks_df_by_exp[exp]
             expanded_xlinks_df = xlinks_df.loc[xlinks_df.index.repeat(xlinks_df.score)].reset_index(drop=True)
 
             # Get metrics
@@ -267,22 +265,22 @@ def main(process_name):
 
     # Subset for MultiQC plots
     total_peaks_df = peaks_metrics_df.pivot_table(index="exp", columns="peakcaller", values="total_peaks")
-    total_peaks_df.to_csv("total_peaks.tsv", sep="\t", index=True)
+    total_peaks_df.to_csv("total_peaks_mqc.tsv", sep="\t", index=True)
 
     xlinks_in_peaks_percent_df = peaks_metrics_df.pivot_table(
         index="exp", columns="peakcaller", values="xlinks_in_peaks_percent"
     )
-    xlinks_in_peaks_percent_df.to_csv("xlinks_in_peaks.tsv", sep="\t", index=True)
+    xlinks_in_peaks_percent_df.to_csv("xlinks_in_peaks_mqc.tsv", sep="\t", index=True)
 
     xlinksites_in_peaks_percent_df = peaks_metrics_df.pivot_table(
         index="exp", columns="peakcaller", values="xlinksites_in_peaks_percent"
     )
-    xlinksites_in_peaks_percent_df.to_csv("xlinksites_in_peaks.tsv", sep="\t", index=True)
+    xlinksites_in_peaks_percent_df.to_csv("xlinksites_in_peaks_mqc.tsv", sep="\t", index=True)
 
     peaks_xlinksite_coverage_percent_df = peaks_metrics_df.pivot_table(
         index="exp", columns="peakcaller", values="peaks_xlinksite_coverage_percent"
     )
-    peaks_xlinksite_coverage_percent_df.to_csv("peaks_xlinksite_coverage.tsv", sep="\t", index=True)
+    peaks_xlinksite_coverage_percent_df.to_csv("peaks_xlinksite_coverage_mqc.tsv", sep="\t", index=True)
 
     print(peaks_xlinksite_coverage_percent_df)
     print("\n\n")
