@@ -9,6 +9,7 @@ and produce:
 
 import argparse
 import platform
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -94,12 +95,14 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('tsv_string', type=str,
                    help='space-separated list of TSV file paths')
+    p.add_argument('--callers', type=str, required=True,
+                   help='space-separated peak caller names, one per TSV, same order')
     p.add_argument('-o', '--outdir', type=Path, default=Path('.'),
                    help='output directory for PNGs')
     # To run this script on its own, uncomment the next line and comment out the one below it
     # args = p.parse_args()
     # Nextflow fills in the file list; replaces the command line a template can't take
-    args = p.parse_args(["${ch_peka_mqc_plots.join(' ')}"])
+    args = p.parse_args(["${ch_peka_mqc_plots.join(' ')}", "--callers", "${callers.join(' ')}"])
 
     # convert input string to Path objects
     tsv_paths = [Path(x) for x in args.tsv_string.split()]
@@ -108,9 +111,12 @@ def main():
 
     # load and z-score each file
     zseries = {}
-    for f in tsv_paths:
-        sample = f.stem.split('.genome_5mer_distribution')[0] # VALIDATE THAT THIS NAMING WILL ALWAYS MATCH
-        zseries[sample] = load_and_z(f)
+    callers = args.callers.split()
+    assert len(callers) == len(tsv_paths), 'need one caller name per TSV'
+    for caller, f in zip(callers, tsv_paths):
+        # <sample>.genome_<k>mer_distribution_<region> -> <caller>:<sample>_<region>
+        sample = re.sub(r'[.]genome_[0-9]+mer_distribution', '', f.stem)
+        zseries[f'{caller}:{sample}'] = load_and_z(f)
 
     zmat = pd.DataFrame(zseries)
     # print(zmat.head())

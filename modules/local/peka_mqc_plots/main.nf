@@ -4,7 +4,7 @@ process PEKA_MQC_PLOTS {
     container 'community.wave.seqera.io/library/matplotlib_numpy_pandas_pathlib_pruned:2eddce7a3e9fc5bc'
 
     input:
-    path ch_peka_mqc_plots
+    tuple val(callers), path(ch_peka_mqc_plots, stageAs: 'in*/*')
 
     output:
     path "*.png", optional: true, emit: plots

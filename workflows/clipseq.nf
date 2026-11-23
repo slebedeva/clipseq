@@ -815,7 +815,7 @@ workflow CLIPSEQ {
                     ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
                     ch_regions_used.map{ _meta, file -> file }
                 )
-                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_CLIPPY.out.distribution)
+                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_CLIPPY.out.distribution.map{ _meta, files -> ['clippy', files] })
             }
 
         }
@@ -897,7 +897,7 @@ workflow CLIPSEQ {
                     ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
                     ch_regions_used.map{ _meta, file -> file }
                 )
-                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_ICOUNT.out.distribution)
+                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_ICOUNT.out.distribution.map{ _meta, files -> ['icount', files] })
             }
 
         }
@@ -941,7 +941,7 @@ workflow CLIPSEQ {
                     ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
                     ch_regions_used.map{ _meta, file -> file }
                 )
-                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_PARACLU.out.distribution)
+                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_PARACLU.out.distribution.map{ _meta, files -> ['paraclu', files] })
             }
         }
 
@@ -1034,7 +1034,7 @@ workflow CLIPSEQ {
                     ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
                     ch_regions_used.map{ _meta, file -> file }
                 )
-                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_PURECLIP.out.distribution)
+                ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_PURECLIP.out.distribution.map{ _meta, files -> ['pureclip', files] })
             }
         }
     }
@@ -1061,8 +1061,12 @@ workflow CLIPSEQ {
 
         // MODULE: Run peka multiqc plots
 
+        // Callers name their PEKA outputs identically, so pass the caller name alongside each file
         PEKA_MQC_PLOTS (
-            ch_peka_mqc_plots.collect{ _meta, file -> file }.flatten().collect()
+            ch_peka_mqc_plots
+                .flatMap{ caller, files -> [files].flatten().collect{ f -> [caller, f] } }
+                .collect(flat: false)
+                .map{ pairs -> [pairs.collect{ p -> p[0] }, pairs.collect{ p -> p[1] }] }
         )
 
         //
