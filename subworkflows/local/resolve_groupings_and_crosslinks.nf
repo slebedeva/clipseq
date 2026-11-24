@@ -57,7 +57,7 @@ workflow RESOLVE_GROUPS_AND_CROSSLINKS {
 
     SAMTOOLS_MERGE (
         ch_grouped_bam.map { meta, bams -> [meta, bams, []] },
-        ch_fasta.combine(ch_fasta_fai).map { meta, fa, _meta_fai, fai -> [meta, fa, fai, []] },
+        ch_fasta.combine(ch_fasta_fai).map { meta, fa, _meta_fai, fai -> [meta, fa, fai, []] }.first(),
         ''
     )
     ch_grouped_bam = SAMTOOLS_MERGE.out.bam

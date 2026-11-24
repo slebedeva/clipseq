@@ -812,7 +812,7 @@ workflow CLIPSEQ {
                 PEKA_CLIPPY (
                     ch_clippy_genome_peaks,
                     ch_genome_crosslink_group_resolved_bed,
-                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
+                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] }.first(),
                     ch_regions_used.map{ _meta, file -> file }
                 )
                 ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_CLIPPY.out.distribution.map{ _meta, files -> ['clippy', files] })
@@ -894,7 +894,7 @@ workflow CLIPSEQ {
                 PEKA_ICOUNT (
                     ch_icountmini_peaks,
                     ch_genome_crosslink_group_resolved_bed,
-                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
+                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] }.first(),
                     ch_regions_used.map{ _meta, file -> file }
                 )
                 ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_ICOUNT.out.distribution.map{ _meta, files -> ['icount', files] })
@@ -938,7 +938,7 @@ workflow CLIPSEQ {
                 PEKA_PARACLU (
                     ch_paraclu_genome_peaks,
                     ch_genome_crosslink_group_resolved_bed,
-                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
+                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] }.first(),
                     ch_regions_used.map{ _meta, file -> file }
                 )
                 ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_PARACLU.out.distribution.map{ _meta, files -> ['paraclu', files] })
@@ -1031,7 +1031,7 @@ workflow CLIPSEQ {
                 PEKA_PURECLIP(
                     ch_pureclip_genome_peaks_matched,
                     ch_genome_crosslink_bed_matched,
-                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] },
+                    ch_fasta.combine(ch_fasta_fai).map{ meta, fa, _meta_fai, fai -> [meta, fa, fai] }.first(),
                     ch_regions_used.map{ _meta, file -> file }
                 )
                 ch_peka_mqc_plots = ch_peka_mqc_plots.mix(PEKA_PURECLIP.out.distribution.map{ _meta, files -> ['pureclip', files] })
