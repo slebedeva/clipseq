@@ -9,11 +9,11 @@ process CLIPQC {
     path("premap/*")
     path("mapped/*")
     path("collapse/*")
-    path("xlinks/*")
-    path("icount/*")
-    path("paraclu/*")
-    path("clippy/*")
-    path("pureclip/*")
+    tuple val(xlinks_ids)  , path(xlinks  , stageAs: "xlinks/*")
+    tuple val(icount_ids)  , path(icount  , stageAs: "icount/*")
+    tuple val(paraclu_ids) , path(paraclu , stageAs: "paraclu/*")
+    tuple val(clippy_ids)  , path(clippy  , stageAs: "clippy/*")
+    tuple val(pureclip_ids), path(pureclip, stageAs: "pureclip/*")
     path("summary_type/*")
     path("summary_subtype/*")
     path("summary_gene/*")
@@ -27,5 +27,16 @@ process CLIPQC {
 
     shell:
     process_name = task.process
+    // "id:path,id:path" strings, parsed by clipqc.py to pair peaks with their crosslinks
+    xlinks_pairs   = toPairs(xlinks_ids, xlinks)
+    icount_pairs   = toPairs(icount_ids, icount)
+    paraclu_pairs  = toPairs(paraclu_ids, paraclu)
+    clippy_pairs   = toPairs(clippy_ids, clippy)
+    pureclip_pairs = toPairs(pureclip_ids, pureclip)
     template 'clipqc.py'
+}
+
+// Join ids and their staged files as "id:path,id:path" (empty string when there are none)
+def toPairs(ids, files) {
+    return [ids, [files].flatten()].transpose().collect { i, f -> "${i}:${f}" }.join(',')
 }

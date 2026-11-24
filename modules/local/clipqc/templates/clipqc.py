@@ -21,6 +21,11 @@ def dump_versions(process_name):
         out_f.write("    pybedtools: " + pbt.__version__ + "\n")
 
 
+def parse_pairs(pairs):
+    """Parse "id:path,id:path" (built in main.nf from meta.id and staged file) into {id: path}."""
+    return dict(p.split(":", 1) for p in pairs.split(",") if p)
+
+
 def main(process_name):
     # Dump version file
     dump_versions(process_name)
@@ -148,15 +153,14 @@ def main(process_name):
         )
         return df
 
-    # First get xlink bed files
-    xlinks_files = sorted(["xlinks/" + f for f in os.listdir("xlinks") if f.endswith(".bed")])
+    # Crosslink bed files keyed by sample/group id (meta.id)
+    xlinks_files = parse_pairs("!{xlinks_pairs}")
 
     xlinks = dict((key, []) for key in ["exp", "number_of_cDNAs", "total_positions_of_crosslinks", "ratio"])
 
-    for xlinks_file in xlinks_files:
+    for exp, xlinks_file in sorted(xlinks_files.items()):
         xlinks_df = read_bed(xlinks_file)
 
-        exp = re.sub(".genome.xl.bed", "", os.path.basename(xlinks_file))
         number_of_cDNAs = xlinks_df["score"].sum()
         total_positions_of_crosslinks = xlinks_df.shape[0]
         ratio = number_of_cDNAs / total_positions_of_crosslinks
@@ -253,8 +257,16 @@ def main(process_name):
   # Only referring to peak callers which were actually used
     peakcallers = [c.strip().strip("[]") for c in "!{callers}".split(",")]
 
+    # Peak bed files per caller, keyed by the same sample/group id as the crosslinks
+    peak_pairs = {
+        "icount": "!{icount_pairs}",
+        "paraclu": "!{paraclu_pairs}",
+        "clippy": "!{clippy_pairs}",
+        "pureclip": "!{pureclip_pairs}",
+    }
+
     def get_peaks_metrics(peakcaller):
-        peak_files = sorted([peakcaller + "/" + f for f in os.listdir(peakcaller) if f.endswith(".bed")])
+        peak_files = parse_pairs(peak_pairs[peakcaller])
 
         peaks = dict(
             (key, [])
@@ -274,23 +286,11 @@ def main(process_name):
             ]
         )
 
-        for peak_file in peak_files:
+        for exp, peak_file in sorted(peak_files.items()):
             peaks_df = read_bed(peak_file)
 
-            if peakcaller == "icount":
-                exp = re.sub(".peaks.bed", "", os.path.basename(peak_file))
-            elif peakcaller == "paraclu":
-                exp = re.sub(".genome.peaks.clustered.simplified.bed", "", os.path.basename(peak_file))
-            elif peakcaller == "clippy":
-                exp = re.sub(
-                    ".genome.peaks_rollmean10_minHeightAdjust1.0_minPromAdjust1.0_minGeneCount5_Peaks.bed",
-                    "",
-                    os.path.basename(peak_file),
-                )
-            elif peakcaller == "pureclip":
-                exp = re.sub("_pureclip.peaks.bed", "", os.path.basename(peak_file))
-
-            xlinks_df = read_bed(xlinks_files[0])
+            # Crosslinks of the same sample/group the peaks were called on
+            xlinks_df = read_bed(xlinks_files[exp])
             expanded_xlinks_df = xlinks_df.loc[xlinks_df.index.repeat(xlinks_df.score)].reset_index(drop=True)
 
             # Get metrics

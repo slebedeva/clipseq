@@ -1048,11 +1048,12 @@ workflow CLIPSEQ {
             ch_rDNA_log.collect{ _meta, file -> file },
             ch_genome_log.collect{ _meta, file -> file },
             ch_umi_log.collect{ _meta, file -> file },
-            ch_genome_crosslink_group_resolved_bed.collect{ _meta, file -> file },
-            'icount' in callers ? ch_icountmini_peaks.collect{ _meta, file -> file } : [],
-            'paraclu' in callers ? ch_paraclu_genome_peaks.collect{ _meta, file -> file } : [],
-            'clippy' in callers ? ch_clippy_genome_peaks.collect{ _meta, file -> file } : [],
-            'pureclip' in callers ? ch_pureclip_genome_peaks.collect{ _meta, file -> file } : [],
+            // Crosslinks and peaks keep their sample/group id so CLIPQC can pair them
+            idsAndFiles(ch_genome_crosslink_group_resolved_bed),
+            'icount' in callers ? idsAndFiles(ch_icountmini_peaks) : [[], []],
+            'paraclu' in callers ? idsAndFiles(ch_paraclu_genome_peaks) : [[], []],
+            'clippy' in callers ? idsAndFiles(ch_clippy_genome_peaks) : [[], []],
+            'pureclip' in callers ? idsAndFiles(ch_pureclip_genome_peaks) : [[], []],
             ch_merged_summary_type.collect{ _meta, file -> file },
             ch_merged_summary_subtype.collect{ _meta, file -> file },
             ch_merged_summary_gene.collect{ _meta, file -> file },
@@ -1139,6 +1140,14 @@ workflow CLIPSEQ {
         multiqc_report
     )
 
+}
+
+// Collect [meta, file] items into one [ids, files] tuple, keeping each file's meta.id
+def idsAndFiles(ch) {
+    return ch
+        .map { meta, f -> [meta.id, f] }
+        .collect(flat: false)
+        .map { pairs -> [pairs.collect { p -> p[0] }, pairs.collect { p -> p[1] }] }
 }
 
 /*
