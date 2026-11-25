@@ -168,6 +168,12 @@
                 "rDNA_chrom_sizes": {
                     "type": "string"
                 },
+                "rDNA_regions": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Optional BED of rRNA/spacer regions on the rDNA contig, drawn as boxes in the rDNA summary plot. See assets/rDNA_regions for human, mouse and yeast."
+                },
                 "seg_resolved_gtf_genic": {
                     "type": "string"
                 },

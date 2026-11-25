@@ -30,15 +30,23 @@ for (i in 1:length(files)){
 }
 
 
+# Region boxes come from an optional BED (chr, start, end, name); rRNA rows shaded blue, spacers grey.
+# Without a BED, draw a single grey background.
+region_files <- list.files(path = ".")
+region_files <- region_files[endsWith(region_files, ".bed")]
+
+if (length(region_files) == 1) {
+  regions <- read.delim(region_files[1], header = FALSE,
+                        col.names = c("chr", "start", "end", "name")) %>%
+    mutate(fill = ifelse(grepl("ribosomal RNA", name, fixed = TRUE), "#E4F3F5", "#DEDDDD"))
+} else {
+  regions <- data.frame(start = -Inf, end = Inf, fill = "#DEDDDD")
+}
+
 plot <- ggplot(df, aes(x = xlink_1, y = sample, weight = count)) +
-  annotate("rect", xmin = 0,     xmax = 3656,  ymin = -Inf, ymax = Inf, fill = "#DEDDDD") +
-  annotate("rect", xmin = 3657,     xmax = 5527,  ymin = -Inf, ymax = Inf, fill = "#E4F3F5") +
-  annotate("rect", xmin = 5528,     xmax = 6622,  ymin = -Inf, ymax = Inf, fill = "#DEDDDD") +
-  annotate("rect", xmin = 6623,     xmax = 6779,  ymin = -Inf, ymax = Inf, fill = "#E4F3F5") +
-  annotate("rect", xmin = 6780,     xmax = 7934,  ymin = -Inf, ymax = Inf, fill = "#DEDDDD") +
-  annotate("rect", xmin = 7935,     xmax = 12969,  ymin = -Inf, ymax = Inf, fill = "#E4F3F5") +
-  annotate("rect", xmin = 12970,     xmax = 13314,  ymin = -Inf, ymax = Inf, fill = "#DEDDDD") +
-  annotate("rect", xmin = 13315,     xmax = 42999,  ymin = -Inf, ymax = Inf, fill = "#DEDDDD") +
+  geom_rect(data = regions, inherit.aes = FALSE,
+            aes(xmin = start, xmax = end, ymin = -Inf, ymax = Inf, fill = fill)) +
+  scale_fill_identity() +
   geom_density_ridges(scale = 1, alpha = 0.8, bandwidth = 20) +
   theme_minimal() +
   ylab("Sample") +

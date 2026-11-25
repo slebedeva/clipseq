@@ -671,7 +671,8 @@ workflow CLIPSEQ {
             rDNA_SUMMARY(
                 rDNA_RESOLVE_GROUPS_AND_CROSSLINKS.out.ncRNA_CPMnorm_bedgraph
                 .map{ _meta, file -> file }
-                .collect()
+                .collect(),
+                params.rDNA_regions ? file(params.rDNA_regions) : []
             )
         }
 

@@ -8,6 +8,7 @@ process rDNA_SUMMARY {
 
     input:
     path(norm_bedgraph)
+    path(regions)                                    // optional rDNA regions BED, [] if absent
 
     output:
     path("*.png")                                    ,emit: png
